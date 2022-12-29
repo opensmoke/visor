@@ -1,3 +1,4 @@
+#include <map>
 #include "SPI.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_ILI9341.h"
@@ -13,6 +14,8 @@
 #define TFT_DC     21
 #define TFT_RST  15
 
+std::map<int, std::array<int,2>> probeDisplayOffsets;
+
 GFXfont OFSmall = FreeSansBoldOblique9pt7b;
 GFXfont OFMedium = FreeSansBoldOblique12pt7b;
 GFXfont OFLarge = FreeSansBoldOblique18pt7b;
@@ -22,7 +25,9 @@ Adafruit_ILI9341 display(TFT_CS, TFT_DC);
 GFXcanvas16 header(320, 60);
 GFXcanvas16 content(320, 120);
 
-    int ThermistorPin;
+    int Probe1Pin,Probe2Pin,Probe3Pin,Probe4Pin,Probe5Pin,Probe6Pin;
+    int Probe1LedPin,Probe2LedPin,Probe3LedPin,Probe4LedPin,Probe5LedPin,Probe6LedPin;
+
     double adcMax, Vs;
 
     double R1 = 10000.0;   // voltage divider resistor value
@@ -39,20 +44,45 @@ void setup() {
 setupCanvas();
     drawHeader();
 
-ThermistorPin = 13;
+Probe1Pin = 13;
+Probe2Pin = 12;
+Probe3Pin = 14;
+Probe4Pin = 27;
+Probe5Pin = 26;
+Probe6Pin = 25;
+
+Probe1LedPin = 2;
+Probe2LedPin = 4;
+Probe3LedPin = 5;
+Probe4LedPin = 33;
+Probe5LedPin = 32;
+Probe6LedPin = 34;
+
+probeDisplayOffsets[Probe1LedPin] = {0,40};
+probeDisplayOffsets[Probe2LedPin] = {120,40};
+probeDisplayOffsets[Probe3LedPin] = {240,40};
+probeDisplayOffsets[Probe4LedPin] = {0,120};
+probeDisplayOffsets[Probe5LedPin] = {120,120};
+probeDisplayOffsets[Probe6LedPin] = {240,120};
+
     adcMax = 4095.0; // ADC resolution 12-bit (0-4095)
     Vs = 3.3;        // supply voltage    
 
-    pinMode(2, OUTPUT);
+    pinMode(Probe1LedPin, OUTPUT);
+    pinMode(Probe2LedPin, OUTPUT);
+    pinMode(Probe3LedPin, OUTPUT);
+    pinMode(Probe4LedPin, OUTPUT);
+    pinMode(Probe5LedPin, OUTPUT);
+    pinMode(Probe6LedPin, OUTPUT);
 
 }
 
 
-    double getTemp() {
+    double getTemp(int probe) {
       double Vout, Rt = 0;
       double T, Tc, Tf = 0;
 
-      Vout = analogRead(ThermistorPin) * Vs/adcMax;
+      Vout = analogRead(probe) * Vs/adcMax;
       Rt = R1 * Vout / (Vs - Vout);
       T = 1/(1/To + log(Rt/Ro)/Beta);  // Temperature in Kelvin
       Tc = T - 273.15;                 // Celsius
@@ -69,22 +99,53 @@ void setupCanvas() {
     content.setTextColor(ILI9341_BLACK);
 }
 
+void updateTempDisplay(double temp, char* tempDisplay, int led) {
+  std::array<int,2> offset = probeDisplayOffsets.at(led);
+  if(temp > 32) {
+    writeText(tempDisplay, offset[0], offset[1]);
+      digitalWrite(led, HIGH);
+} else {
+    writeText("--", offset[0], offset[1]);
+      digitalWrite(led, LOW);
+}
+}
+
 void loop() {
   content.fillScreen(ILI9341_WHITE); 
 
-    double temp = getTemp(); 
-    char buffer[8];
-    char* tempString = dtostrf(temp,1,2, buffer);
+    double temp1 = getTemp(Probe1Pin); 
+    double temp2 = getTemp(Probe2Pin); 
+    double temp3 = getTemp(Probe3Pin); 
+    double temp4 = getTemp(Probe4Pin); 
+    double temp5 = getTemp(Probe5Pin); 
+    double temp6 = getTemp(Probe6Pin); 
+
+    char buffer1[8];
+    char* temp1String = dtostrf(temp1,1,2, buffer1);
+
+        char buffer2[8];
+    char* temp2String = dtostrf(temp2,1,2, buffer2);
+
+        char buffer3[8];
+    char* temp3String = dtostrf(temp3,1,2, buffer3);
+
+        char buffer4[8];
+    char* temp4String = dtostrf(temp4,1,2, buffer4);
+
+        char buffer5[8];
+    char* temp5String = dtostrf(temp5,1,2, buffer5);
+
+        char buffer6[8];
+    char* temp6String = dtostrf(temp6,1,2, buffer6);
     
       content.setFont(&OFMedium);
 
-    writeText(tempString, 0, 20);
-
-if(temp > 0) {
-  digitalWrite(2, HIGH);
-} else {
-  digitalWrite(2, LOW);
-}
+updateTempDisplay(temp1, temp1String, Probe1LedPin);
+updateTempDisplay(temp2, temp2String, Probe2LedPin);
+updateTempDisplay(temp3, temp3String, Probe3LedPin);
+updateTempDisplay(temp4, temp4String, Probe4LedPin);
+updateTempDisplay(temp5, temp5String, Probe5LedPin);
+updateTempDisplay(temp6, temp6String, Probe6LedPin);
 
   display.drawRGBBitmap(0, 60, content.getBuffer(), content.width(), content.height());
 
